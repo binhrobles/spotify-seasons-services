@@ -13,7 +13,7 @@ func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse,
 
 	return events.APIGatewayProxyResponse{
         StatusCode: http.StatusOK,
-        Body:       "Hello from CDK GolangFunction!",
+        Body:       req.Body,
     }, nil
 }
 
