@@ -13,11 +13,11 @@ export class UserApisStack extends cdk.Stack {
       proxy: false,
       defaultCorsPreflightOptions: {
         allowOrigins: Cors.ALL_ORIGINS, // TODO: not this
-        allowMethods: ['OPTIONS', 'POST'],
+        allowMethods: ['OPTIONS', 'PUT'],
       },
     });
 
     const user = api.root.addResource('user');
-    user.addMethod('POST');
+    user.addMethod('PUT');
   }
 }
