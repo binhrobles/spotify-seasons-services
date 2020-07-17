@@ -14,6 +14,9 @@ func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse,
 	return events.APIGatewayProxyResponse{
         StatusCode: http.StatusOK,
         Body:       req.Body,
+        Headers: map[string]string{
+          "Access-Control-Allow-Origin": "*", // TODO: not this
+        },
     }, nil
 }
 
