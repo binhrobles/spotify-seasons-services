@@ -9,7 +9,8 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "deploy": "cdk deploy"
+    "deploy": "cdk deploy",
+    "local-invoke": "cdk synth --no-staging > template.yaml && sam local invoke usercrud1468D737 -e sam/create-user.json | jq"
   },
   "devDependencies": {
     "@aws-cdk/assert": "1.51.0",

@@ -13,3 +13,4 @@ cdk.out
 
 # build outputs
 .build
+template.yaml

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
@@ -18,6 +17,15 @@ var CLIENT_SECRET string
 
 type RequestBody struct {
 	Code string `json:"code"`
+}
+
+type SpotifyTokensResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type ResponseBody struct {
+	AccessToken string `json:"access_token"`
 }
 
 func handleError(err error) {
@@ -45,7 +53,7 @@ func coldstartInit() {
 
 // sends auth code to spotify token endpoint
 // gets access/refresh tokens back
-func getTokens(code string) string {
+func getTokens(code string) SpotifyTokensResponse {
 	response, err := http.PostForm("https://accounts.spotify.com/api/token", url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -59,9 +67,12 @@ func getTokens(code string) string {
 	tokenBody, err := ioutil.ReadAll(response.Body)
 	handleError(err)
 
-	fmt.Println(string(tokenBody))
+	// parse out access and refresh tokens
+	spotifyResponse := SpotifyTokensResponse{}
+	err = json.Unmarshal([]byte(tokenBody), &spotifyResponse)
+	handleError(err)
 
-	return string(tokenBody)
+	return spotifyResponse
 }
 
 func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -74,15 +85,18 @@ func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse,
 	err := json.Unmarshal([]byte(req.Body), &requestBody)
 	handleError(err)
 
-	tokenBody := getTokens(requestBody.Code)
+	tokens := getTokens(requestBody.Code)
 
-	// parse access/refresh tokens
 	// create/update user in DDB
 
 	// return access code to user
+	response, err := json.Marshal(ResponseBody{
+		AccessToken: tokens.AccessToken,
+	})
+
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
-		Body:       string(tokenBody),
+		Body:       string(response),
 		Headers: map[string]string{
 			"Access-Control-Allow-Origin": "*", // TODO: not this
 		},
