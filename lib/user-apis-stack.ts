@@ -12,6 +12,7 @@ export class UserApisStack extends cdk.Stack {
       environment: {
         CLIENT_ID: process.env.CLIENT_ID || '',
         REDIRECT_URI: process.env.REDIRECT_URI || '',
+        STAGE: 'production',
       },
     });
 

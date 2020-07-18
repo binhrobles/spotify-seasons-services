@@ -1,0 +1,29 @@
+{
+  "me": {
+    "country": "US",
+    "display_name": "Binh Robles",
+    "explicit_content": {
+      "filter_enabled": false,
+      "filter_locked": false
+    },
+    "external_urls": {
+      "spotify": "https://open.spotify.com/user/12345"
+    },
+    "followers": {
+      "href": null,
+      "total": 24
+    },
+    "href": "https://api.spotify.com/v1/users/12345",
+    "id": "12345",
+    "images": [
+      {
+        "height": null,
+        "url": "https://scontent-ort2-2.xx.fbcdn.net/v/t1.0-1/c0.0.320.320a/p320x320/106367958_3618794178149930_4085198993262250923_o.jpg?_nc_cat=109&_nc_sid=0c64ff&_nc_ohc=MeNvbAx7ReAAX9mbcxn&_nc_ht=scontent-ort2-2.xx&oh=b3ed0f70f1492331b924a9cee4706a65&oe=5F362AFA",
+        "width": null
+      }
+    ],
+    "product": "premium",
+    "type": "user",
+    "uri": "spotify:user:12345"
+  }
+}

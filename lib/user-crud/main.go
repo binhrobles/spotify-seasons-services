@@ -6,7 +6,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/ssm"
 
 	"encoding/json"
@@ -33,7 +32,8 @@ type SpotifyUserInfoResponse struct {
 }
 
 type ResponseBody struct {
-	AccessToken string `json:"access_token"`
+	AccessToken string                  `json:"access_token"`
+	UserInfo    SpotifyUserInfoResponse `json:"user"`
 }
 
 func handleError(err error) {
@@ -43,6 +43,8 @@ func handleError(err error) {
 }
 
 var CLIENT_SECRET string
+var SPOTIFY_ACCOUNTS_BASE_URI string
+var SPOTIFY_WEB_BASE_URI string
 var ddb_client *dynamodb.DynamoDB
 
 // performs one-time initializations for this lambda container
@@ -61,12 +63,25 @@ func coldstartInit() {
 
 	// initializes DDB interface
 	ddb_client = dynamodb.New(sess)
+
+	// sets spotify base URIs for local vs production env
+	switch os.Getenv("STAGE") {
+	case "local":
+		SPOTIFY_ACCOUNTS_BASE_URI = "http://docker.for.mac.localhost:3001"
+		SPOTIFY_WEB_BASE_URI = "http://docker.for.mac.localhost:3001"
+	case "production":
+		SPOTIFY_ACCOUNTS_BASE_URI = "https://accounts.spotify.com/api"
+		SPOTIFY_WEB_BASE_URI = "https://api.spotify.com/v1"
+	default:
+		SPOTIFY_ACCOUNTS_BASE_URI = "https://accounts.spotify.com/api"
+		SPOTIFY_WEB_BASE_URI = "https://api.spotify.com/v1"
+	}
 }
 
 // sends auth code to spotify token endpoint
 // gets access/refresh tokens back
 func getTokens(code string) SpotifyTokensResponse {
-	response, err := http.PostForm("https://accounts.spotify.com/api/token", url.Values{
+	response, err := http.PostForm(SPOTIFY_ACCOUNTS_BASE_URI+"/token", url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
 		"redirect_uri":  {os.Getenv("REDIRECT_URI")},
@@ -88,7 +103,7 @@ func getTokens(code string) SpotifyTokensResponse {
 }
 
 func getUserInfo(token string) SpotifyUserInfoResponse {
-	req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me", nil)
+	req, err := http.NewRequest("GET", SPOTIFY_WEB_BASE_URI+"/me", nil)
 	handleError(err)
 
 	req.Header.Add("Authorization", "Bearer "+token)
@@ -128,6 +143,7 @@ func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse,
 	// return info/credentials to client
 	response, err := json.Marshal(ResponseBody{
 		AccessToken: tokens.AccessToken,
+		UserInfo:    userInfo,
 	})
 
 	return events.APIGatewayProxyResponse{
