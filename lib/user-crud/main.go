@@ -1,19 +1,20 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/ssm"
+
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 )
-
-var CLIENT_SECRET string
 
 type RequestBody struct {
 	Code string `json:"code"`
@@ -22,6 +23,13 @@ type RequestBody struct {
 type SpotifyTokensResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type SpotifyUserInfoResponse struct {
+	Name       string `json:"display_name"`
+	ID         string `json:"id"`
+	ProfileUrl string `json:"href"`
+	Avatar     string `json:"images[0].url"`
 }
 
 type ResponseBody struct {
@@ -33,6 +41,9 @@ func handleError(err error) {
 		panic(err)
 	}
 }
+
+var CLIENT_SECRET string
+var ddb_client *dynamodb.DynamoDB
 
 // performs one-time initializations for this lambda container
 func coldstartInit() {
@@ -49,6 +60,7 @@ func coldstartInit() {
 	CLIENT_SECRET = aws.StringValue(ssm_result.Parameter.Value)
 
 	// initializes DDB interface
+	ddb_client = dynamodb.New(sess)
 }
 
 // sends auth code to spotify token endpoint
@@ -75,6 +87,27 @@ func getTokens(code string) SpotifyTokensResponse {
 	return spotifyResponse
 }
 
+func getUserInfo(token string) SpotifyUserInfoResponse {
+	req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me", nil)
+	handleError(err)
+
+	req.Header.Add("Authorization", "Bearer "+token)
+	client := &http.Client{}
+	response, err := client.Do(req)
+	handleError(err)
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	handleError(err)
+
+	// parse out relevant user info
+	spotifyResponse := SpotifyUserInfoResponse{}
+	err = json.Unmarshal([]byte(body), &spotifyResponse)
+	handleError(err)
+
+	return spotifyResponse
+}
+
 func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	if CLIENT_SECRET == "" {
 		coldstartInit()
@@ -87,9 +120,12 @@ func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse,
 
 	tokens := getTokens(requestBody.Code)
 
+	// get user info from spotify
+	userInfo := getUserInfo(tokens.AccessToken)
+
 	// create/update user in DDB
 
-	// return access code to user
+	// return info/credentials to client
 	response, err := json.Marshal(ResponseBody{
 		AccessToken: tokens.AccessToken,
 	})
