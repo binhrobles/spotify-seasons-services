@@ -6,7 +6,12 @@ export class UserApisStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const userCrudFunction = new golang.GolangFunction(this, 'user-crud');
+    const userCrudFunction = new golang.GolangFunction(this, 'user-crud', {
+      environment: {
+        CLIENT_ID: process.env.CLIENT_ID || '',
+        REDIRECT_URI: process.env.REDIRECT_URI || '',
+      },
+    });
 
     const api = new LambdaRestApi(this, 'api', {
       handler: userCrudFunction,
