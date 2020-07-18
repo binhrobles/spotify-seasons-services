@@ -5,14 +5,42 @@ import (
 	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ssm"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 )
 
+var CLIENT_SECRET string
+
 type RequestBody struct {
 	Code string `json:"code"`
+}
+
+func handleError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// performs one-time initializations for this lambda container
+func coldstartInit() {
+	// create AWS SDK session for AWS service clients
+	sess := session.Must(session.NewSession())
+
+	// grabs spotify client secret from SSM parameter store
+	ssm_client := ssm.New(sess)
+	ssm_result, err := ssm_client.GetParameter(&ssm.GetParameterInput{
+		Name:           aws.String("/spotifySeasons/clientSecret"),
+		WithDecryption: aws.Bool(true),
+	})
+	handleError(err)
+	CLIENT_SECRET = aws.StringValue(ssm_result.Parameter.Value)
+
+	// initializes DDB interface
 }
 
 // sends auth code to spotify token endpoint
@@ -23,15 +51,13 @@ func getTokens(code string) string {
 		"code":          {code},
 		"redirect_uri":  {os.Getenv("REDIRECT_URI")},
 		"client_id":     {os.Getenv("CLIENT_ID")},
-		"client_secret": {os.Getenv("CLIENT_SECRET")},
+		"client_secret": {CLIENT_SECRET},
 	})
-
-	if err != nil {
-		panic(err)
-	}
+	handleError(err)
 
 	defer response.Body.Close()
 	tokenBody, err := ioutil.ReadAll(response.Body)
+	handleError(err)
 
 	fmt.Println(string(tokenBody))
 
@@ -39,11 +65,14 @@ func getTokens(code string) string {
 }
 
 func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	if CLIENT_SECRET == "" {
+		coldstartInit()
+	}
+
 	// unmarshal json request into RequestBody object
 	requestBody := RequestBody{}
-	if err := json.Unmarshal([]byte(req.Body), &requestBody); err != nil {
-		panic(err)
-	}
+	err := json.Unmarshal([]byte(req.Body), &requestBody)
+	handleError(err)
 
 	tokenBody := getTokens(requestBody.Code)
 
